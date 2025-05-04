@@ -47,7 +47,7 @@ This computer vision pipeline requires a large number of dependencies due to the
 To install this library one can use pip on UNIX systems:
 
 ```bash
-# Install ROS dependencies (replace <distro> with your ROS distribution, I used noetic with only marginal migraines)
+# Install ROS dependencies (replace <distro> with your ROS distribution)
 sudo apt-get update
 sudo apt-get install -y ros-<distro>-cv-bridge
 sudo apt-get install -y ros-<distro>-message-filters
@@ -92,7 +92,7 @@ source ~/catkin_ws/devel/setup.bash
 # First, create a ROS package if you haven't already:
 cd ~/catkin_ws/src
 catkin_create_pkg robot_vision rospy std_msgs sensor_msgs cv_bridge
-cp yolo-ollama-pipeline.py ~/catkin_ws/src/robot_vision/nodes/
+cp ollama-agent.py ~/catkin_ws/src/robot_vision/nodes/
 cp l515-yolo-navigation.py ~/catkin_ws/src/robot_vision/nodes/
 chmod +x ~/catkin_ws/src/robot_vision/nodes/*.py
 
@@ -100,7 +100,7 @@ chmod +x ~/catkin_ws/src/robot_vision/nodes/*.py
 cd ~/catkin_ws && catkin_make
 
 # Run the scripts
-rosrun robot_vision yolo-ollama-pipeline.py
+rosrun robot_vision ollama-agent.py
 rosrun robot_vision l515-yolo-navigation.py
 ```
 ## Objective
@@ -110,13 +110,13 @@ Can multimodal sensory input be used to prevent jailbreaking of LLM-controlled r
 More specifically, these included designing a way to manipulate multimodal sensor data in a way which can be understood by a LLM (llama3), choosing to go for JSON-formatted “observations” sent over custom ROS topics as a means of communication along the pipeline, the delegation of a number of perception and navigation tasks to reduce computational load and allow for real-time locomotion, YOLOv8m for object detection, the means of injecting L515 Depth Data, and the use of RTABMAP not just for 3D-point projection but also the generation of a 2D occupancy map to implement A* path planning.
 
 ### Plan of Attack
-This robotic perception and navigation system combines computer vision, depth sensing, and language models to create an intelligent agent capable of understanding and interacting with its environment. The pipeline begins with real-time camera data acquisition, where synchronized RGB and depth images are captured and processed using YOLOv8 for object detection. The detected objects are then mapped to 3D coordinates by correlating bounding box centers with depth values, creating a spatial understanding of the environment that includes object class, confidence, position, and distance.
+This robotic perception and navigation system implements a hierarchical architecture where high-level reasoning meets low-level execution. The system consists of two complementary nodes: l515-yolo-navigation.py serves as the perception and motor control subsystem, while ollama-agent.py acts as the cognitive reasoning layer. The navigation node continuously processes synchronized RGB-D camera streams, employing YOLOv8 for real-time object detection and depth correlation to generate 3D world positions. It maintains environmental awareness through RTABMap integration for SLAM (Simultaneous Localization and Mapping), tracks object persistence between frames, implements A* pathfinding on occupancy grids, and executes movement commands while avoiding obstacles.
  <br />
-  <br />
-The system architecture features two distinct operational modes. The first, embodied in yolo-ollama-pipeline.py, integrates with a Large Language Model (Llama3) that acts as a high-level decision-making agent. This LLM continuously receives environmental context—including robot position, detected objects, and their spatial relationships—and issues commands like object tracking, movement directives, and scene analysis. The second mode, implemented in l515-yolo-navigation.py, focuses on autonomous navigation using RTABMap for SLAM capabilities. This version maintains a persistent map of the environment, tracks objects between frames, performs path planning using A* algorithms on occupancy grids, and executes complex navigation tasks such as object approach, area exploration, and environmental scanning.
  <br />
-  <br />
-The entire system operates within the ROS (Robot Operating System) framework, facilitating seamless communication between components through a publish-subscribe architecture. Camera data flows from sensor topics to processing nodes, while computed setpoints and navigation commands are published to control topics. Visualization components provide real-time feedback through OpenCV displays and RViz-compatible markers, creating a comprehensive robotic perception and control system that can be adapted for various autonomous tasks ranging from object manipulation to environment mapping and exploration.
+The ollama-agent.py node operates as an autonomous decision-making agent powered by Llama3, implementing sophisticated state representation and command generation. This agent maintains a comprehensive world model that includes robot position, currently visible objects, memorized objects with confidence decay, and path status. It generates natural language descriptions of the environment, queries the large language model for strategic decisions, and parses LLM responses into actionable JSON commands. The agent implements object permanence through a memory system that tracks objects even when out of view, gradually decaying confidence over time. It communicates with the navigation node through standardized commands including MOVE_TO_COORDINATES, MOVE_TO_OBJECT, EXPLORE, SCAN_AREA, and GET_ENVIRONMENT_DATA.
+ <br />
+ <br />
+The architecture enables robust bidirectional communication through ROS topics where the navigation node publishes detected objects as markers, planned paths, and command execution results, while the ollama-agent subscribes to these updates and publishes strategic commands. The system creates a continuous perception-decision-action loop: the navigation node detects and localizes objects, the agent analyzes this information to formulate plans, sends commands for execution, and receives feedback to update its world model. This separation of concerns allows for flexible deployment where the perception system can operate independently while the reasoning agent provides higher-order behavior, making the system adaptable for varied robotic applications from object manipulation to autonomous exploration.
 ![Diagram](diagram.png)
 
 ### New Input Options
